@@ -8,27 +8,34 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.svg', 'logo-altonadock.png', 'bg-lighthouse.jpg'],
       manifest: {
-        name: 'Altona Sales Tracker',
-        short_name: 'Altona',
-        description: 'Tracking de ventas para córner de ropa',
-        theme_color: '#6366f1',
-        background_color: '#0f172a',
+        name: 'Altonadock Sales Tracker',
+        short_name: 'Altona Sales',
+        description: 'Control de ventas del córner Altonadock',
+        theme_color: '#c4a574',
+        background_color: '#0d1015',
         display: 'standalone',
         orientation: 'any',
+        start_url: '/altona_app/',
+        scope: '/altona_app/',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: 'logo-altonadock.png',
             sizes: '192x192',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           },
           {
-            src: 'pwa-512x512.png',
+            src: 'logo-altonadock.png',
             sizes: '512x512',
-            type: 'image/png'
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg,webp}']
       }
     })
   ],
@@ -37,3 +44,4 @@ export default defineConfig({
     open: true
   }
 })
+

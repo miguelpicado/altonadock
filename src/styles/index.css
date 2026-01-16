@@ -1208,3 +1208,120 @@ body::before {
 .goal-input-row .btn {
   height: 48px;
 }
+
+/* ================================
+   PWA Install Banner
+   ================================ */
+.install-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--accent-primary);
+  padding: var(--spacing-md) var(--spacing-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  z-index: 1000;
+  animation: slideUpBanner 0.3s ease-out;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes slideUpBanner {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.install-banner-content {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.install-banner-icon {
+  font-size: 2rem;
+}
+
+.install-banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.install-banner-text strong {
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.install-banner-text span {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.install-banner-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.install-btn-dismiss {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.install-btn-dismiss:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
+}
+
+.install-btn-confirm {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: var(--accent-gradient);
+  border: none;
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.install-btn-confirm:hover {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-glow);
+}
+
+@media (max-width: 480px) {
+  .install-banner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .install-banner-content {
+    flex-direction: column;
+  }
+
+  .install-banner-actions {
+    width: 100%;
+  }
+
+  .install-btn-dismiss,
+  .install-btn-confirm {
+    flex: 1;
+  }
+}

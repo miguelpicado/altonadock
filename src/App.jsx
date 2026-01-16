@@ -5,6 +5,7 @@ import Header from './components/Header';
 import TabBar from './components/TabBar';
 import FloatingButton from './components/FloatingButton';
 import AddSaleModal from './components/AddSaleModal';
+import InstallPrompt from './components/InstallPrompt';
 import ResumenTab from './pages/ResumenTab';
 import UltimaVentaTab from './pages/UltimaVentaTab';
 import LoginPage from './pages/LoginPage';
@@ -75,6 +76,8 @@ export default function App() {
     return (
         <AuthProvider>
             <AppContent />
+            <InstallPrompt />
         </AuthProvider>
     );
 }
+
