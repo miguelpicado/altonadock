@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getSales, getLastSale, addSale as addSaleService } from '../services/salesService';
 import { calculateRatios } from '../utils/calculations';
+import { isFirebaseConfigured } from '../config/firebase.config';
 
 // LocalStorage key for demo data
 const DEMO_STORAGE_KEY = 'altona_demo_sales';
@@ -41,9 +42,9 @@ export function useSales() {
             setLoading(true);
             setError(null);
 
-            // Check if in demo mode
+            // Check if in demo mode OR if Firebase is not configured
             const demoUser = localStorage.getItem('altona_demo_user');
-            if (demoUser) {
+            if (demoUser || !isFirebaseConfigured) {
                 setIsDemo(true);
                 const demoSales = getDemoSales();
                 setSales(demoSales);
@@ -52,7 +53,7 @@ export function useSales() {
                 return;
             }
 
-            // Try Firebase
+            // Try Firebase (only if configured)
             const [salesData, lastSaleData] = await Promise.all([
                 getSales(30),
                 getLastSale()
