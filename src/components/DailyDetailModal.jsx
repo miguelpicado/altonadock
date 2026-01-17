@@ -27,10 +27,22 @@ export default function DailyDetailModal({ isOpen, onClose, dayData, onDelete })
 
                 <div className="modal-body">
                     {/* Aggregated Totals Highlight */}
-                    <div className="card mb-lg text-center" style={{ background: 'var(--bg-tertiary)' }}>
-                        <span className="text-muted text-xs uppercase" style={{ fontSize: '0.75rem' }}>Total Venta Día</span>
-                        <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--accent-primary)' }}>
-                            {formatCurrency(aggregated.venta)}
+                    <div className="card mb-lg" style={{ background: 'var(--bg-tertiary)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                            <span className="text-muted text-sm">Venta bruta</span>
+                            <span style={{ fontWeight: 500 }}>{formatCurrency(aggregated.ventaBruta || aggregated.venta)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                            <span className="text-muted text-sm">Abonos (€)</span>
+                            <span style={{ fontWeight: 500, color: 'var(--danger)' }}>-{formatCurrency(aggregated.abonos || 0)}</span>
+                        </div>
+                        <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '0.5rem', marginTop: '0.5rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span className="text-muted text-xs uppercase" style={{ fontSize: '0.75rem' }}>Venta Neta Día</span>
+                                <span style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--accent-primary)' }}>
+                                    {formatCurrency(aggregated.venta)}
+                                </span>
+                            </div>
                         </div>
                     </div>
 

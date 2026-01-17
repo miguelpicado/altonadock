@@ -120,13 +120,16 @@ export default function ResumenTab({ sales, lastSale }) {
         const conversionStats = getSummaryStats(cleanSales, 'conversion');
         const ticketStats = getSummaryStats(cleanSales, 'ticketMedio');
         const productividadStats = getSummaryStats(cleanSales, 'productividad');
+        const apoStats = getSummaryStats(cleanSales, 'apo');
 
         return {
             venta: ventaStats,
             conversion: conversionStats,
             ticketMedio: ticketStats,
             productividad: productividadStats,
+            apo: apoStats,
             totalVentas: ventaStats.total,
+            totalAbonos: cleanSales.reduce((sum, s) => sum + (s.abonos || 0), 0),
             totalOperaciones: cleanSales.reduce((sum, s) => sum + s.operaciones, 0),
             totalClientes: cleanSales.reduce((sum, s) => sum + s.clientes, 0),
             totalUnidades: cleanSales.reduce((sum, s) => sum + s.unidades, 0),
@@ -380,8 +383,10 @@ export default function ResumenTab({ sales, lastSale }) {
                             variant={stats?.conversion?.avg >= 15 ? 'success' : stats?.conversion?.avg >= 10 ? 'warning' : 'danger'}
                         />
                         <StatCard label="Ticket Medio" value={formatCurrency(stats?.ticketMedio?.avg || 0)} />
+                        <StatCard label="APO Medio" value={formatNumber(stats?.apo?.avg || 0)} unit="uds/op" />
                         <StatCard label="Productividad" value={formatCurrency(stats?.productividad?.avg || 0)} unit="/hora" />
                         <StatCard label="Días Registrados" value={stats?.diasRegistrados || 0} unit="días" />
+                        <StatCard label="Total Abonos" value={formatCurrency(stats?.totalAbonos || 0)} variant="danger" />
                     </div>
 
                     {/* Charts */}

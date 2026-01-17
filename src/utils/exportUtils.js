@@ -1,5 +1,6 @@
 /**
  * Convert sales data to CSV format and trigger download
+ * Supports both legacy records and new unit sales system
  * @param {Array} sales - Array of sales objects
  */
 export function exportSalesToCSV(sales) {
@@ -8,33 +9,32 @@ export function exportSalesToCSV(sales) {
         return;
     }
 
-    // Define CSV headers
+    // Define CSV headers - added new columns for unit sales system
     const headers = [
         "Fecha",
+        "Hora",
+        "Tipo",
         "Empleada",
-        "Venta Total (€)",
+        "Artículos",
+        "Venta (€)",
+        "Abono (€)",
+        "Venta Bruta (€)",
         "Unidades",
         "Operaciones",
         "Clientes",
         "Horas Trabajadas",
         "Conversion (%)",
         "Ticket Medio (€)",
-        "UPT (Unidades/Ticket)",
+        "APO (Unidades/Ticket)",
         "PMV (Precio Medio Venta)",
-        "Productividad (€/h)"
+        "Productividad (€/h)",
+        "Motivo Ajuste"
     ];
 
-    // Helper to format values for CSV
-    const formatValue = (val) => {
-        if (typeof val === 'number') {
-            return val.toFixed(2).replace('.', ','); // Excel prefers comma for decimals in some locales, or dot. keeping standard? 
-            // Actually, for Spanish locale Excel often expects comma. Let's use standard dot for broad compatibility or comma if user prefers.
-            // Let's stick to standard CSV format (dot for decimals) to avoid delimiter confusion, 
-            // but since user is Spanish, they might expect semicolon delimiter and comma decimals.
-            // Let's try standard US format first (comma delimiter, dot decimal) as it's safer for systems.
-        }
-        if (val instanceof Date) return val.toLocaleDateString();
-        return val ? `"${String(val).replace(/"/g, '""')}"` : "";
+    // Helper to get record type label
+    const getTypeLabel = (sale) => {
+        if (!sale.tipo) return 'total';
+        return sale.tipo;
     };
 
     // Construct CSV content
@@ -42,24 +42,44 @@ export function exportSalesToCSV(sales) {
         headers.join(","), // Header row
         ...sales.map(sale => {
             const dateStr = new Date(sale.fecha).toLocaleDateString();
+            const tipo = getTypeLabel(sale);
+
             return [
                 dateStr,
+                sale.hora || '',
+                tipo,
                 `"${sale.empleada}"`,
-                sale.venta,
-                sale.unidades,
-                sale.operaciones,
-                sale.clientes,
-                sale.horasTrabajadas,
-                sale.conversion,
-                sale.ticketMedio,
-                sale.apo, // UPT
-                sale.pmv,
-                sale.productividad
+                // For unit sales, use articulos; for legacy, use unidades
+                tipo === 'unitaria' ? sale.articulos : sale.unidades || '',
+                // venta field (adjusted for type)
+                tipo === 'abono' ? '' : (sale.venta || 0),
+                // abono field
+                tipo === 'abono' ? sale.abono : (sale.abonos || ''),
+                // ventaBruta
+                sale.ventaBruta || '',
+                // unidades (legacy only)
+                tipo === 'total' || !sale.tipo ? sale.unidades : '',
+                // operaciones (legacy only)
+                tipo === 'total' || !sale.tipo ? sale.operaciones : '',
+                // clientes (legacy or cierre)
+                sale.clientes || '',
+                // horas trabajadas
+                sale.horasTrabajadas || '',
+                // calculated ratios (legacy only)
+                sale.conversion || '',
+                sale.ticketMedio || '',
+                sale.apo || '',
+                sale.pmv || '',
+                sale.productividad || '',
+                // motivo (for adjustments)
+                sale.motivo ? `"${sale.motivo}"` : ''
             ].map(val => {
                 // Handle undefined/null
                 if (val === null || val === undefined) return "";
-                // If string with comma, quote it
-                if (typeof val === 'string' && val.includes(',')) return `"${val}"`;
+                // If string with comma, ensure it's quoted
+                if (typeof val === 'string' && val.includes(',') && !val.startsWith('"')) {
+                    return `"${val}"`;
+                }
                 return val;
             }).join(",");
         })

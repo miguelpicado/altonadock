@@ -47,6 +47,161 @@ export function unifyHistorySales(salesArray) {
 }
 
 /**
+ * Aggregate sales by employee for a specific date
+ * Supports both new unit sales system and legacy total records
+ * @param {Array} salesArray - All sales records for a date
+ * @param {string} empleada - Employee name to filter
+ * @returns {Object} Aggregated data for that employee
+ */
+export function aggregateDailyByEmployee(salesArray, empleada) {
+    if (!salesArray || salesArray.length === 0) {
+        return {
+            operaciones: 0,
+            unidades: 0,
+            ventaBruta: 0,
+            abonos: 0,
+            venta: 0,
+            clientes: 0,
+            horasTrabajadas: 0,
+            hasClose: false
+        };
+    }
+
+    // Filter by employee
+    const empSales = salesArray.filter(s => s.empleada === empleada);
+
+    if (empSales.length === 0) {
+        return {
+            operaciones: 0,
+            unidades: 0,
+            ventaBruta: 0,
+            abonos: 0,
+            venta: 0,
+            clientes: 0,
+            horasTrabajadas: 0,
+            hasClose: false
+        };
+    }
+
+    // Check for legacy record (tipo 'total' or no tipo with full data)
+    const legacyRecord = empSales.find(s =>
+        (!s.tipo || s.tipo === 'total') && s.clientes !== undefined && s.operaciones !== undefined
+    );
+
+    if (legacyRecord) {
+        // Return legacy record as-is with calculated ratios
+        try {
+            const ratios = calculateRatios(legacyRecord);
+            return {
+                ...legacyRecord,
+                ...ratios,
+                hasClose: true
+            };
+        } catch {
+            return {
+                ...legacyRecord,
+                conversion: 0,
+                apo: 0,
+                pmv: 0,
+                ticketMedio: 0,
+                productividad: 0,
+                hasClose: true
+            };
+        }
+    }
+
+    // Aggregate from unit sales
+    const unitarias = empSales.filter(s => s.tipo === 'unitaria');
+    const abonosRecords = empSales.filter(s => s.tipo === 'abono');
+    const ajustes = empSales.filter(s => s.tipo === 'ajuste');
+    const cierre = empSales.find(s => s.tipo === 'cierre');
+
+    const operaciones = unitarias.length;
+    const unidades = unitarias.reduce((sum, s) => sum + (s.articulos || 0), 0);
+    const ventaBruta = unitarias.reduce((sum, s) => sum + (s.venta || 0), 0);
+    const abonos = abonosRecords.reduce((sum, s) => sum + (s.abono || 0), 0);
+
+    // Add adjustments
+    const ventaAjuste = ajustes.reduce((sum, s) => sum + (s.ventaAjuste || 0), 0);
+    const abonoAjuste = ajustes.reduce((sum, s) => sum + (s.abonoAjuste || 0), 0);
+
+    const ventaFinal = ventaBruta - abonos + ventaAjuste - abonoAjuste;
+    const clientes = cierre?.clientes || 0;
+    const horasTrabajadas = cierre?.horasTrabajadas || 0;
+
+    const result = {
+        operaciones,
+        unidades,
+        ventaBruta,
+        abonos: abonos + abonoAjuste,
+        venta: ventaFinal,
+        clientes,
+        horasTrabajadas,
+        hasClose: !!cierre,
+        empleada
+    };
+
+    // Calculate ratios if we have enough data
+    if (operaciones > 0 && unidades > 0 && clientes > 0 && horasTrabajadas > 0) {
+        try {
+            const ratios = calculateRatios(result);
+            return { ...result, ...ratios };
+        } catch {
+            // Fall through to default ratios
+        }
+    }
+
+    // Partial ratios for incomplete data
+    return {
+        ...result,
+        conversion: clientes > 0 ? roundTo((operaciones * 100) / clientes, 2) : 0,
+        apo: operaciones > 0 ? roundTo(unidades / operaciones, 2) : 0,
+        pmv: unidades > 0 ? roundTo(ventaFinal / unidades, 2) : 0,
+        ticketMedio: operaciones > 0 ? roundTo(ventaFinal / operaciones, 2) : 0,
+        productividad: horasTrabajadas > 0 ? roundTo(ventaFinal / horasTrabajadas, 2) : 0
+    };
+}
+
+/**
+ * Aggregate all employees for a specific date
+ * @param {Array} salesArray - All sales records for a date
+ * @returns {Object} { ingrid: {...}, marta: {...}, total: {...} }
+ */
+export function aggregateDailyTotal(salesArray) {
+    const ingrid = aggregateDailyByEmployee(salesArray, 'Ingrid');
+    const marta = aggregateDailyByEmployee(salesArray, 'Marta');
+
+    // Combine totals
+    const total = {
+        operaciones: ingrid.operaciones + marta.operaciones,
+        unidades: ingrid.unidades + marta.unidades,
+        ventaBruta: ingrid.ventaBruta + marta.ventaBruta,
+        abonos: ingrid.abonos + marta.abonos,
+        venta: ingrid.venta + marta.venta,
+        clientes: ingrid.clientes + marta.clientes,
+        horasTrabajadas: ingrid.horasTrabajadas + marta.horasTrabajadas,
+        hasClose: ingrid.hasClose && marta.hasClose
+    };
+
+    // Calculate combined ratios
+    if (total.operaciones > 0 && total.unidades > 0) {
+        total.conversion = total.clientes > 0 ? roundTo((total.operaciones * 100) / total.clientes, 2) : 0;
+        total.apo = roundTo(total.unidades / total.operaciones, 2);
+        total.pmv = roundTo(total.venta / total.unidades, 2);
+        total.ticketMedio = roundTo(total.venta / total.operaciones, 2);
+        total.productividad = total.horasTrabajadas > 0 ? roundTo(total.venta / total.horasTrabajadas, 2) : 0;
+    } else {
+        total.conversion = 0;
+        total.apo = 0;
+        total.pmv = 0;
+        total.ticketMedio = 0;
+        total.productividad = 0;
+    }
+
+    return { ingrid, marta, total };
+}
+
+/**
  * Aggregate multiple sales records into a single summary with calculated ratios
  * @param {Array} salesArray - Array of sale records
  * @returns {Object|null} Aggregated sale object or null
@@ -61,6 +216,8 @@ export function aggregateSales(salesArray) {
         operaciones: 0,
         unidades: 0,
         venta: 0,
+        ventaBruta: 0,
+        abonos: 0,
         horasTrabajadas: 0,
     };
 
@@ -70,6 +227,8 @@ export function aggregateSales(salesArray) {
             operaciones: acc.operaciones + (sale.operaciones || 0),
             unidades: acc.unidades + (sale.unidades || 0),
             venta: acc.venta + (sale.venta || 0),
+            ventaBruta: acc.ventaBruta + (sale.ventaBruta || sale.venta || 0),
+            abonos: acc.abonos + (sale.abonos || 0),
             horasTrabajadas: acc.horasTrabajadas + (sale.horasTrabajadas || 0),
         };
     }, initialStats);

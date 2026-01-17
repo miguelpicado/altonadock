@@ -10,7 +10,8 @@ export default function AddSaleModal({ isOpen, onClose, onSubmit, existingSales 
         operaciones: '',
         unidades: '',
         venta: '',
-        horasTrabajadas: ''
+        horasTrabajadas: '',
+        abonos: ''
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -41,13 +42,19 @@ export default function AddSaleModal({ isOpen, onClose, onSubmit, existingSales 
             setLoading(true);
 
             // Convert to numbers
+            const ventaBruta = parseFloat(formData.venta);
+            const abonos = formData.abonos ? parseFloat(formData.abonos) : 0;
+            const ventaNeta = ventaBruta - abonos;
+
             const saleInput = {
                 fecha: formData.fecha,
                 empleada: formData.empleada,
                 clientes: parseInt(formData.clientes, 10),
                 operaciones: parseInt(formData.operaciones, 10),
                 unidades: parseInt(formData.unidades, 10),
-                venta: parseFloat(formData.venta),
+                venta: ventaNeta,
+                ventaBruta: ventaBruta,
+                abonos: abonos,
                 horasTrabajadas: parseFloat(formData.horasTrabajadas)
             };
 
@@ -82,7 +89,8 @@ export default function AddSaleModal({ isOpen, onClose, onSubmit, existingSales 
                 operaciones: '',
                 unidades: '',
                 venta: '',
-                horasTrabajadas: ''
+                horasTrabajadas: '',
+                abonos: ''
             });
 
             onClose();
@@ -99,7 +107,8 @@ export default function AddSaleModal({ isOpen, onClose, onSubmit, existingSales 
             operaciones: 'Operaciones',
             unidades: 'Unidades',
             venta: 'Venta (€)',
-            horasTrabajadas: 'Horas trabajadas'
+            horasTrabajadas: 'Horas trabajadas',
+            abonos: 'Abonos (€)'
         };
         return labels[field] || field;
     };
@@ -216,19 +225,35 @@ export default function AddSaleModal({ isOpen, onClose, onSubmit, existingSales 
                             </div>
                         </div>
 
-                        <div className="form-group">
-                            <label className="form-label">Horas trabajadas</label>
-                            <input
-                                type="number"
-                                name="horasTrabajadas"
-                                value={formData.horasTrabajadas}
-                                onChange={handleChange}
-                                className="form-input"
-                                placeholder="Ej: 8"
-                                min="0.5"
-                                step="0.5"
-                                required
-                            />
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label className="form-label">Horas trabajadas</label>
+                                <input
+                                    type="number"
+                                    name="horasTrabajadas"
+                                    value={formData.horasTrabajadas}
+                                    onChange={handleChange}
+                                    className="form-input"
+                                    placeholder="Ej: 8"
+                                    min="0.5"
+                                    step="0.5"
+                                    required
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Abonos (€)</label>
+                                <input
+                                    type="number"
+                                    name="abonos"
+                                    value={formData.abonos}
+                                    onChange={handleChange}
+                                    className="form-input"
+                                    placeholder="Ej: 50.00"
+                                    min="0"
+                                    step="0.01"
+                                />
+                            </div>
                         </div>
                     </div>
 

@@ -1,20 +1,20 @@
 import { useState, useMemo } from 'react';
 import StatCard from '../components/StatCard';
-import { formatCurrency, formatPercentage, formatNumber, aggregateSales } from '../utils/calculations';
+import { formatCurrency, formatPercentage, formatNumber } from '../utils/calculations';
 
-export default function VentaTab({ dailyTotal, todaysSales }) {
+export default function VentaTab({ dailyTotal, todaysSales, aggregatedData }) {
     const [selectedEmployee, setSelectedEmployee] = useState('ALL'); // 'ALL', 'Ingrid', or 'Marta'
 
-    // Find individual sales
-    const ingridSale = useMemo(() => todaysSales?.find(s => s.empleada === 'Ingrid'), [todaysSales]);
-    const martaSale = useMemo(() => todaysSales?.find(s => s.empleada === 'Marta'), [todaysSales]);
+    // Get individual data from aggregatedData (pre-calculated in App.jsx)
+    const ingridData = aggregatedData?.ingrid;
+    const martaData = aggregatedData?.marta;
 
     // Calculate data to display based on selection
     const displayData = useMemo(() => {
-        if (selectedEmployee === 'Ingrid') return ingridSale;
-        if (selectedEmployee === 'Marta') return martaSale;
-        return dailyTotal;
-    }, [selectedEmployee, ingridSale, martaSale, dailyTotal]);
+        if (selectedEmployee === 'Ingrid') return ingridData;
+        if (selectedEmployee === 'Marta') return martaData;
+        return dailyTotal || aggregatedData?.total;
+    }, [selectedEmployee, ingridData, martaData, dailyTotal, aggregatedData]);
 
     // Handle empty state (no sales at all today)
     if (!dailyTotal && (!todaysSales || todaysSales.length === 0)) {
@@ -55,9 +55,13 @@ export default function VentaTab({ dailyTotal, todaysSales }) {
                 >
                     <div className="employee-name">Ingrid</div>
                     <div className="employee-total">
-                        {ingridSale ? formatCurrency(ingridSale.venta) : 'Pending'}
+                        {ingridData?.operaciones > 0 ? formatCurrency(ingridData.venta) : 'Pending'}
                     </div>
-                    {ingridSale && <div className="employee-status">✓ Registrado</div>}
+                    {ingridData?.operaciones > 0 && (
+                        <div className="employee-status">
+                            {ingridData.hasClose ? '✓ Cerrado' : `${ingridData.operaciones} ops`}
+                        </div>
+                    )}
                 </div>
 
                 {/* Marta's Side */}
@@ -67,9 +71,13 @@ export default function VentaTab({ dailyTotal, todaysSales }) {
                 >
                     <div className="employee-name">Marta</div>
                     <div className="employee-total">
-                        {martaSale ? formatCurrency(martaSale.venta) : 'Pending'}
+                        {martaData?.operaciones > 0 ? formatCurrency(martaData.venta) : 'Pending'}
                     </div>
-                    {martaSale && <div className="employee-status">✓ Registrado</div>}
+                    {martaData?.operaciones > 0 && (
+                        <div className="employee-status">
+                            {martaData.hasClose ? '✓ Cerrado' : `${martaData.operaciones} ops`}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -110,7 +118,15 @@ export default function VentaTab({ dailyTotal, todaysSales }) {
                                     <span className="report-value">{displayData.unidades}</span>
                                 </div>
                                 <div className="report-item">
-                                    <span className="report-label">Venta total</span>
+                                    <span className="report-label">Venta bruta</span>
+                                    <span className="report-value">{formatCurrency(displayData.ventaBruta || displayData.venta)}</span>
+                                </div>
+                                <div className="report-item">
+                                    <span className="report-label">Abonos (€)</span>
+                                    <span className="report-value" style={{ color: 'var(--danger)' }}>-{formatCurrency(displayData.abonos || 0)}</span>
+                                </div>
+                                <div className="report-item">
+                                    <span className="report-label">Venta neta</span>
                                     <span className="report-value highlight">{formatCurrency(displayData.venta)}</span>
                                 </div>
                                 <div className="report-item">
@@ -165,9 +181,19 @@ export default function VentaTab({ dailyTotal, todaysSales }) {
                             value={formatCurrency(displayData.pmv)}
                         />
                         <StatCard
+                            label="APO"
+                            value={formatNumber(displayData.apo)}
+                            unit="uds/op"
+                        />
+                        <StatCard
                             label="Productividad"
                             value={formatCurrency(displayData.productividad)}
                             unit="/hora"
+                        />
+                        <StatCard
+                            label="Abonos"
+                            value={formatCurrency(displayData.abonos || 0)}
+                            variant="danger"
                         />
                     </div>
                 </>
