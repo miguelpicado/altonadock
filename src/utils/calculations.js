@@ -21,7 +21,6 @@ export function unifyDailySales(salesArray) {
     });
 
     return Object.values(uniqueMap);
-    return Object.values(uniqueMap);
 }
 
 /**
@@ -88,18 +87,31 @@ export function aggregateDailyByEmployee(salesArray, empleada) {
         (!s.tipo || s.tipo === 'total') && s.clientes !== undefined && s.operaciones !== undefined
     );
 
+    // Always check for separate abono records (they can coexist with legacy records)
+    const abonosRecords = empSales.filter(s => s.tipo === 'abono');
+    const abonosFromSeparateRecords = abonosRecords.reduce((sum, s) => sum + (s.abono || 0), 0);
+
     if (legacyRecord) {
-        // Return legacy record as-is with calculated ratios
+        // Combine legacy record with any separate abono records
+        const totalAbonos = (legacyRecord.abonos || 0) + abonosFromSeparateRecords;
+        const adjustedVenta = (legacyRecord.venta || 0) - abonosFromSeparateRecords;
+
         try {
-            const ratios = calculateRatios(legacyRecord);
+            const ratios = calculateRatios({ ...legacyRecord, venta: adjustedVenta });
             return {
                 ...legacyRecord,
                 ...ratios,
+                abonos: totalAbonos,
+                venta: adjustedVenta,
+                ventaBruta: legacyRecord.ventaBruta || legacyRecord.venta || 0,
                 hasClose: true
             };
         } catch {
             return {
                 ...legacyRecord,
+                abonos: totalAbonos,
+                venta: adjustedVenta,
+                ventaBruta: legacyRecord.ventaBruta || legacyRecord.venta || 0,
                 conversion: 0,
                 apo: 0,
                 pmv: 0,
@@ -112,14 +124,14 @@ export function aggregateDailyByEmployee(salesArray, empleada) {
 
     // Aggregate from unit sales
     const unitarias = empSales.filter(s => s.tipo === 'unitaria');
-    const abonosRecords = empSales.filter(s => s.tipo === 'abono');
+    // abonosRecords already defined above
     const ajustes = empSales.filter(s => s.tipo === 'ajuste');
     const cierre = empSales.find(s => s.tipo === 'cierre');
 
     const operaciones = unitarias.length;
     const unidades = unitarias.reduce((sum, s) => sum + (s.articulos || 0), 0);
     const ventaBruta = unitarias.reduce((sum, s) => sum + (s.venta || 0), 0);
-    const abonos = abonosRecords.reduce((sum, s) => sum + (s.abono || 0), 0);
+    const abonos = abonosFromSeparateRecords;
 
     // Add adjustments
     const ventaAjuste = ajustes.reduce((sum, s) => sum + (s.ventaAjuste || 0), 0);

@@ -68,6 +68,7 @@ export function AuthProvider({ children }) {
         loading,
         login,
         loginAsDemo,
+        loginDemo: loginAsDemo, // Alias for hidden demo mode activation
         logout,
         isAuthenticated: !!user,
         isDemo: user?.isDemo || false

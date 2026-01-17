@@ -1,13 +1,37 @@
+import { useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
-    const { login } = useAuth();
+    const { login, loginDemo } = useAuth();
+    const clickCountRef = useRef(0);
+    const clickTimeoutRef = useRef(null);
 
     const handleLogin = async () => {
         try {
             await login();
         } catch (error) {
             console.error('Login failed:', error);
+        }
+    };
+
+    const handleLogoClick = () => {
+        clickCountRef.current += 1;
+
+        // Reset counter after 3 seconds of inactivity
+        if (clickTimeoutRef.current) {
+            clearTimeout(clickTimeoutRef.current);
+        }
+        clickTimeoutRef.current = setTimeout(() => {
+            clickCountRef.current = 0;
+        }, 3000);
+
+        // Activate demo mode after 10 clicks
+        if (clickCountRef.current >= 10) {
+            clickCountRef.current = 0;
+            if (clickTimeoutRef.current) {
+                clearTimeout(clickTimeoutRef.current);
+            }
+            loginDemo();
         }
     };
 
@@ -18,6 +42,8 @@ export default function LoginPage() {
                     src={`${import.meta.env.BASE_URL}logo-altonadock.png`}
                     alt="Altonadock"
                     className="login-logo-img"
+                    onClick={handleLogoClick}
+                    style={{ cursor: 'pointer' }}
                 />
                 <h1 className="login-title">Sales Tracker</h1>
                 <p className="login-subtitle">

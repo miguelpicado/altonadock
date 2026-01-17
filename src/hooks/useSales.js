@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getSales, getLastSale, addSale as addSaleService, deleteSale as deleteSaleService } from '../services/salesService';
-import { calculateRatios, aggregateSales, unifyDailySales } from '../utils/calculations';
+import { calculateRatios, aggregateDailyTotal } from '../utils/calculations';
 import { isFirebaseConfigured } from '../config/firebase.config';
 
 // LocalStorage key for demo data
@@ -51,22 +51,22 @@ export function useSales() {
         const now = new Date();
         const todayStr = now.toDateString();
 
-        // 1. Identify today's sales
+        // 1. Identify today's sales (all types: unitaria, abono, cierre, ajuste, total)
         const todayRecords = activeSales.filter(s => {
             const d = new Date(s.fecha);
             return d.toDateString() === todayStr;
         });
 
-        // 2. Aggregate today's sales
-        const uniqueToday = unifyDailySales(todayRecords);
-        const todayAggregated = aggregateSales(uniqueToday);
+        // 2. Aggregate today's sales using aggregateDailyTotal
+        // This handles all record types correctly (unitaria, abono, cierre, etc.)
+        const todayAggregated = aggregateDailyTotal(todayRecords);
 
         // 3. Determine "lastSale"
         const mostRecent = activeSales.length > 0 ? activeSales[0] : null;
 
         setSales(activeSales);
         setTodaysSales(todayRecords);
-        setDailyTotal(todayAggregated);
+        setDailyTotal(todayAggregated.total);
         setLastSale(mostRecent);
     }, [deletedIdsRef]);
 

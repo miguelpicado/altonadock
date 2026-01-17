@@ -99,13 +99,20 @@ export default function VentaTab({ dailyTotal, todaysSales, aggregatedData }) {
                 </div>
             </div>
 
-            {/* Combined Total Display (Only visible when ALL is selected) */}
-            {selectedEmployee === 'ALL' && (
-                <div className="venta-total-highlight text-center mb-lg">
-                    <span className="venta-total-label">Total Día</span>
-                    <span className="venta-total-value">{formatCurrency(dailyTotal?.venta || 0)}</span>
+            {/* Total Day Button - Always visible below both employees */}
+            <div
+                className={`employee-card total-day-card ${selectedEmployee === 'ALL' ? 'active' : ''}`}
+                onClick={() => setSelectedEmployee('ALL')}
+                style={{ marginTop: 'var(--spacing-md)' }}
+            >
+                <div className="employee-name">Total Día</div>
+                <div className="employee-total">
+                    {formatCurrency(dailyTotal?.venta || 0)}
                 </div>
-            )}
+                <div className="employee-status">
+                    Abonos: -{formatCurrency(dailyTotal?.abonos || 0)}
+                </div>
+            </div>
 
             {/* Detail Report Section */}
             {!displayData ? (

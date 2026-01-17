@@ -19,7 +19,7 @@ import {
     formatNumber,
     getSummaryStats,
     calculateTrend,
-    unifyHistorySales
+    aggregateDailyTotal
 } from '../utils/calculations';
 
 // Register Chart.js components
@@ -93,12 +93,28 @@ export default function ResumenTab({ sales, lastSale }) {
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
 
-        return sales
-            .filter(sale => {
-                const saleDate = new Date(sale.fecha);
-                return saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
-            })
-            .reduce((sum, sale) => sum + sale.venta, 0);
+        // Filter sales for current month
+        const monthSales = sales.filter(sale => {
+            const saleDate = new Date(sale.fecha);
+            return saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
+        });
+
+        // Group by day and aggregate
+        const grouped = {};
+        monthSales.forEach(sale => {
+            const dateStr = new Date(sale.fecha).toDateString();
+            if (!grouped[dateStr]) grouped[dateStr] = [];
+            grouped[dateStr].push(sale);
+        });
+
+        // Sum the net sales for each day
+        let total = 0;
+        Object.values(grouped).forEach(daySales => {
+            const { total: dayTotal } = aggregateDailyTotal(daySales);
+            total += dayTotal.venta || 0;
+        });
+
+        return total;
     }, [sales]);
 
     // Goal percentage
@@ -107,9 +123,27 @@ export default function ResumenTab({ sales, lastSale }) {
         return Math.round((currentMonthTotal / monthlyGoal.amount) * 100);
     }, [currentMonthTotal, monthlyGoal.amount]);
 
-    // Deduplicate filtered sales for stats and charts
+    // Aggregate filtered sales by day for stats and charts
     const cleanSales = useMemo(() => {
-        return unifyHistorySales(filteredSales);
+        if (!filteredSales || filteredSales.length === 0) return [];
+
+        // Group by date
+        const grouped = {};
+        filteredSales.forEach(sale => {
+            const dateStr = new Date(sale.fecha).toDateString();
+            if (!grouped[dateStr]) grouped[dateStr] = [];
+            grouped[dateStr].push(sale);
+        });
+
+        // Aggregate each day and return array of daily totals
+        return Object.entries(grouped).map(([dateStr, daySales]) => {
+            const { total } = aggregateDailyTotal(daySales);
+            return {
+                ...total,
+                fecha: new Date(daySales[0].fecha),
+                dateStr
+            };
+        });
     }, [filteredSales]);
 
     // Calculate summary statistics
@@ -130,10 +164,10 @@ export default function ResumenTab({ sales, lastSale }) {
             apo: apoStats,
             totalVentas: ventaStats.total,
             totalAbonos: cleanSales.reduce((sum, s) => sum + (s.abonos || 0), 0),
-            totalOperaciones: cleanSales.reduce((sum, s) => sum + s.operaciones, 0),
-            totalClientes: cleanSales.reduce((sum, s) => sum + s.clientes, 0),
-            totalUnidades: cleanSales.reduce((sum, s) => sum + s.unidades, 0),
-            diasRegistrados: new Set(cleanSales.map(s => new Date(s.fecha).toDateString())).size
+            totalOperaciones: cleanSales.reduce((sum, s) => sum + (s.operaciones || 0), 0),
+            totalClientes: cleanSales.reduce((sum, s) => sum + (s.clientes || 0), 0),
+            totalUnidades: cleanSales.reduce((sum, s) => sum + (s.unidades || 0), 0),
+            diasRegistrados: cleanSales.length
         };
     }, [cleanSales]);
 
@@ -141,37 +175,33 @@ export default function ResumenTab({ sales, lastSale }) {
     const chartData = useMemo(() => {
         if (!cleanSales || cleanSales.length === 0) return null;
 
-        const sortedSales = [...cleanSales].reverse();
-        const labels = sortedSales.map(sale => {
-            const date = new Date(sale.fecha);
+        // Sort by date for timeline charts
+        const sortedSales = [...cleanSales].sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+        const dailyLabels = sortedSales.map(s => {
+            const date = new Date(s.fecha);
             return `${date.getDate()}/${date.getMonth() + 1}`;
         });
 
-        // For charts, we might want to aggregate by day if both employees work same day
-        // But simply showing the points is okay for now. 
-        // Better: Group by date for the line charts.
+        const dailyVentas = sortedSales.map(s => s.venta || 0);
+        const dailyConversion = sortedSales.map(s => s.conversion || 0);
 
-        // Group by Date for Line Charts
-        const dailyData = {};
-        sortedSales.forEach(s => {
-            const d = new Date(s.fecha).toDateString();
-            if (!dailyData[d]) dailyData[d] = {
-                venta: 0, conversion: 0, count: 0, date: new Date(s.fecha)
-            };
-            dailyData[d].venta += s.venta;
-            dailyData[d].conversion += s.conversion; // simplified avg later
-            dailyData[d].count += 1;
+        // Calculate total by employee from filteredSales
+        const employeeTotals = { Ingrid: 0, Marta: 0 };
+
+        // Group filteredSales by day and employee
+        const grouped = {};
+        filteredSales.forEach(sale => {
+            const dateStr = new Date(sale.fecha).toDateString();
+            if (!grouped[dateStr]) grouped[dateStr] = [];
+            grouped[dateStr].push(sale);
         });
 
-        const dates = Object.keys(dailyData);
-        const dailyLabels = dates.map(d => {
-            const date = dailyData[d].date;
-            return `${date.getDate()}/${date.getMonth() + 1}`;
+        Object.values(grouped).forEach(daySales => {
+            const { ingrid, marta } = aggregateDailyTotal(daySales);
+            employeeTotals.Ingrid += ingrid.venta || 0;
+            employeeTotals.Marta += marta.venta || 0;
         });
-
-        const dailyVentas = dates.map(d => dailyData[d].venta);
-        // Average conversion for the day
-        const dailyConversion = dates.map(d => dailyData[d].conversion / dailyData[d].count);
 
         return {
             ventas: {
@@ -200,10 +230,7 @@ export default function ResumenTab({ sales, lastSale }) {
                 labels: ['Ingrid', 'Marta'],
                 datasets: [{
                     label: 'Ventas (€)',
-                    data: [
-                        cleanSales.filter(s => s.empleada === 'Ingrid').reduce((sum, s) => sum + s.venta, 0),
-                        cleanSales.filter(s => s.empleada === 'Marta').reduce((sum, s) => sum + s.venta, 0)
-                    ],
+                    data: [employeeTotals.Ingrid, employeeTotals.Marta],
                     backgroundColor: [
                         'rgba(196, 165, 116, 0.8)',
                         'rgba(93, 138, 168, 0.8)'
@@ -216,7 +243,7 @@ export default function ResumenTab({ sales, lastSale }) {
                 }]
             }
         };
-    }, [cleanSales]);
+    }, [cleanSales, filteredSales]);
 
     const chartOptions = {
         responsive: true,

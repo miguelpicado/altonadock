@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { formatCurrency, aggregateSales, unifyDailySales } from '../utils/calculations';
+import { formatCurrency, aggregateDailyTotal } from '../utils/calculations';
 import DailyDetailModal from '../components/DailyDetailModal';
 
 export default function RegistroDiarioTab({ sales, deleteSale, deleteMultipleSales }) {
@@ -22,15 +22,17 @@ export default function RegistroDiarioTab({ sales, deleteSale, deleteMultipleSal
         // Convert to array and sort descending
         return Object.entries(grouped)
             .map(([dateStr, dateSales]) => {
-                const uniqueSales = unifyDailySales(dateSales);
-                const aggregated = aggregateSales(uniqueSales);
+                // Use aggregateDailyTotal for proper calculation
+                const { ingrid, marta, total } = aggregateDailyTotal(dateSales);
+
                 return {
                     dateStr,
-                    rawDate: new Date(dateSales[0].fecha), // use first record's date
-                    aggregated,
-                    details: uniqueSales, // Use unique list for details too, to match totals
-                    hasIngrid: uniqueSales.some(s => s.empleada === 'Ingrid'),
-                    hasMarta: uniqueSales.some(s => s.empleada === 'Marta')
+                    rawDate: new Date(dateSales[0].fecha),
+                    aggregated: total, // Use the correctly aggregated total
+                    details: [ingrid, marta].filter(emp => emp.operaciones > 0 || emp.hasClose), // Pass per-employee data
+                    hasIngrid: ingrid.operaciones > 0 || ingrid.hasClose,
+                    hasMarta: marta.operaciones > 0 || marta.hasClose,
+                    allRecords: dateSales // Keep original records for deletion
                 };
             })
             .sort((a, b) => b.rawDate - a.rawDate);
@@ -46,33 +48,13 @@ export default function RegistroDiarioTab({ sales, deleteSale, deleteMultipleSal
     };
 
     const handleDeleteDay = async (dayData) => {
-        if (!dayData || !dayData.details) return;
+        if (!dayData || !dayData.allRecords) return;
 
-        // TARGET HIDDEN DUPLICATES:
-        // We find ALL records in the global list that match the date and employees 
-        // of the selected day. This ensures we clean up the "stack" of duplicates 
-        // if they exist (which was the cause of the calculation bug).
-        const targetIds = [];
-        const targetDateStr = dayData.dateStr; // "Mon Jan 01 2024"
-
-        dayData.details.forEach(detailSale => {
-            // For each employee in this day's view (Ingrid/Marta)
-            const employeeName = detailSale.empleada;
-
-            // Find all matching records in the full sales list
-            const duplicates = sales.filter(s => {
-                const sDateStr = new Date(s.fecha).toDateString();
-                return s.empleada === employeeName && sDateStr === targetDateStr;
-            });
-
-            duplicates.forEach(dup => targetIds.push(dup.id));
-        });
-
-        // Ensure unique IDs
-        const uniqueIds = [...new Set(targetIds)];
+        // Get all record IDs for this day
+        const targetIds = dayData.allRecords.map(record => record.id);
 
         try {
-            await Promise.all(uniqueIds.map(id => deleteSale(id)));
+            await Promise.all(targetIds.map(id => deleteSale(id)));
             setSelectedDay(null); // Close modal
         } catch (error) {
             console.error("Error deleting day records:", error);
