@@ -271,24 +271,42 @@ export default function AddTotalSaleModal({
     const handleCopyTable = async () => {
         if (!lastReportData) return;
 
+        // Generate a plain text version for compatibility (e.g., WhatsApp, Notepad)
+        // Replace cell endings with tabs and row endings with newlines
+        const plainText = lastReportData
+            .replace(/<\/td>/gi, '\t')
+            .replace(/<\/tr>/gi, '\n')
+            .replace(/<\/?[^>]+(>|$)/g, "") // Strip remaining tags
+            .replace(/^\s*[\r\n]/gm, ""); // Remove empty lines
+
         try {
-            const type = "text/html";
-            const blob = new Blob([lastReportData], { type });
-            const data = [new ClipboardItem({ [type]: blob })];
+            const htmlBlob = new Blob([lastReportData], { type: 'text/html' });
+            const textBlob = new Blob([plainText], { type: 'text/plain' });
+
+            const data = [new ClipboardItem({
+                'text/html': htmlBlob,
+                'text/plain': textBlob
+            })];
+
             await navigator.clipboard.write(data);
             alert('Tabla copiada al portapapeles');
         } catch (err) {
             console.error('Failed to copy: ', err);
             // Fallback
-            const listener = (e) => {
-                e.clipboardData.setData("text/html", lastReportData);
-                e.clipboardData.setData("text/plain", lastReportData);
-                e.preventDefault();
-            };
-            document.addEventListener("copy", listener);
-            document.execCommand("copy");
-            document.removeEventListener("copy", listener);
-            alert('Tabla copiada al portapapeles (modo compatibilidad)');
+            try {
+                const listener = (e) => {
+                    e.clipboardData.setData("text/html", lastReportData);
+                    e.clipboardData.setData("text/plain", plainText);
+                    e.preventDefault();
+                };
+                document.addEventListener("copy", listener);
+                document.execCommand("copy");
+                document.removeEventListener("copy", listener);
+                alert('Tabla copiada al portapapeles (modo compatibilidad)');
+            } catch (fallbackErr) {
+                console.error('Fallback failed:', fallbackErr);
+                alert('No se pudo copiar automáticamente. Por favor selecciónalo manualmente.');
+            }
         }
     };
 
