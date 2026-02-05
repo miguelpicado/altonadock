@@ -21,6 +21,7 @@ import {
     calculateTrend,
     aggregateDailyTotal
 } from '../utils/calculations';
+import { normalizeDate } from '../utils/dateUtils';
 
 // Register Chart.js components
 ChartJS.register(
@@ -66,21 +67,26 @@ export default function ResumenTab({ sales, lastSale }) {
         const currentYear = now.getFullYear();
 
         return sales.filter(sale => {
-            const saleDate = new Date(sale.fecha);
+            try {
+                const saleDate = normalizeDate(sale.fecha);
 
-            switch (filterType) {
-                case 'month':
-                    return saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
-                case 'year':
-                    return saleDate.getFullYear() === currentYear;
-                case 'custom':
-                    if (!customStartDate || !customEndDate) return true;
-                    const start = new Date(customStartDate);
-                    const end = new Date(customEndDate);
-                    end.setHours(23, 59, 59, 999);
-                    return saleDate >= start && saleDate <= end;
-                default:
-                    return true;
+                switch (filterType) {
+                    case 'month':
+                        return saleDate.getMonth() === currentMonth && saleDate.getFullYear() === currentYear;
+                    case 'year':
+                        return saleDate.getFullYear() === currentYear;
+                    case 'custom':
+                        if (!customStartDate || !customEndDate) return true;
+                        const start = new Date(customStartDate);
+                        const end = new Date(customEndDate);
+                        end.setHours(23, 59, 59, 999);
+                        return saleDate >= start && saleDate <= end;
+                    default:
+                        return true;
+                }
+            } catch (error) {
+                console.error('Error filtering sale:', error, sale);
+                return false;
             }
         });
     }, [sales, filterType, customStartDate, customEndDate]);
@@ -140,7 +146,7 @@ export default function ResumenTab({ sales, lastSale }) {
             const { total } = aggregateDailyTotal(daySales);
             return {
                 ...total,
-                fecha: new Date(daySales[0].fecha),
+                fecha: daySales && daySales.length > 0 ? normalizeDate(daySales[0].fecha) : new Date(dateStr),
                 dateStr
             };
         });

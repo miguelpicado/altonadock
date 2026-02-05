@@ -16,6 +16,50 @@ import { db } from './firebase';
 const COLLECTION_NAME = 'sales';
 
 /**
+ * Helper function to safely convert fecha field to Date object
+ * Handles multiple formats: Timestamp, string, Date, or null
+ * @param {*} fecha - The fecha field from Firestore
+ * @returns {Date} A valid Date object
+ */
+function parseFechaField(fecha) {
+    if (!fecha) {
+        return new Date();
+    }
+
+    // If it's already a Date object
+    if (fecha instanceof Date) {
+        return fecha;
+    }
+
+    // If it's a Firestore Timestamp (has toDate method)
+    if (fecha && typeof fecha.toDate === 'function') {
+        return fecha.toDate();
+    }
+
+    // If it's a Firestore Timestamp-like object with seconds
+    if (fecha && typeof fecha.seconds === 'number') {
+        return new Date(fecha.seconds * 1000);
+    }
+
+    // If it's a string, try to parse it
+    if (typeof fecha === 'string') {
+        const parsed = new Date(fecha);
+        if (!isNaN(parsed.getTime())) {
+            return parsed;
+        }
+    }
+
+    // If it's a number (timestamp in milliseconds)
+    if (typeof fecha === 'number') {
+        return new Date(fecha);
+    }
+
+    // Fallback: return current date
+    console.warn('Could not parse fecha field:', fecha);
+    return new Date();
+}
+
+/**
  * Add a new sale record
  * @param {Object} saleData - Sale data including inputs and calculated values
  * @returns {Promise<string>} Document ID
@@ -52,7 +96,7 @@ export async function getSales(limitCount = 30) {
         return snapshot.docs.map(doc => ({
             ...doc.data(),
             id: doc.id,
-            fecha: doc.data().fecha.toDate()
+            fecha: parseFechaField(doc.data().fecha)
         }));
     } catch (error) {
         console.error('Error fetching sales:', error);
@@ -79,7 +123,7 @@ export async function getLastSale() {
         return {
             ...doc.data(),
             id: doc.id,
-            fecha: doc.data().fecha.toDate()
+            fecha: parseFechaField(doc.data().fecha)
         };
     } catch (error) {
         console.error('Error fetching last sale:', error);
@@ -106,7 +150,7 @@ export async function getSalesByDateRange(fromDate, toDate) {
         return snapshot.docs.map(doc => ({
             ...doc.data(),
             id: doc.id,
-            fecha: doc.data().fecha.toDate()
+            fecha: parseFechaField(doc.data().fecha)
         }));
     } catch (error) {
         console.error('Error fetching sales by date range:', error);
@@ -133,7 +177,7 @@ export async function getSalesByEmployee(empleada, limitCount = 30) {
         return snapshot.docs.map(doc => ({
             ...doc.data(),
             id: doc.id,
-            fecha: doc.data().fecha.toDate()
+            fecha: parseFechaField(doc.data().fecha)
         }));
     } catch (error) {
         console.error('Error fetching sales by employee:', error);
@@ -295,7 +339,7 @@ export async function getSalesByDate(date) {
         return snapshot.docs.map(doc => ({
             ...doc.data(),
             id: doc.id,
-            fecha: doc.data().fecha.toDate()
+            fecha: parseFechaField(doc.data().fecha)
         }));
     } catch (error) {
         console.error('Error fetching sales by date:', error);

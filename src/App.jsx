@@ -19,6 +19,7 @@ import {
     addAdjustment
 } from './services/salesService';
 import { aggregateDailyTotal } from './utils/calculations';
+// Fix applied: Updated salesService to handle multiple date formats
 
 function AppContent() {
     const { isAuthenticated, loading: authLoading } = useAuth();

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getSales, getLastSale, addSale as addSaleService, deleteSale as deleteSaleService } from '../services/salesService';
 import { calculateRatios, aggregateDailyTotal } from '../utils/calculations';
 import { isFirebaseConfigured } from '../config/firebase.config';
+import { normalizeDate } from '../utils/dateUtils';
 
 // LocalStorage key for demo data
 const DEMO_STORAGE_KEY = 'altona_demo_sales';
@@ -44,30 +45,73 @@ export function useSales() {
     const deletedIdsRef = useState(() => new Set())[0];
 
     const processSalesData = useCallback((allSales) => {
-        // Filter out any locally deleted IDs
-        // We use the Set to ensure O(1) lookup
-        const activeSales = allSales.filter(s => !deletedIdsRef.has(s.id));
+        try {
+            // Validate input
+            if (!Array.isArray(allSales)) {
+                console.error('processSalesData: Invalid input, expected array:', allSales);
+                setSales([]);
+                setTodaysSales([]);
+                setDailyTotal(null);
+                setLastSale(null);
+                return;
+            }
 
-        const now = new Date();
-        const todayStr = now.toDateString();
+            // Filter out any locally deleted IDs
+            // We use the Set to ensure O(1) lookup
+            const activeSales = allSales.filter(s => {
+                // Validate each sale has required properties
+                if (!s || !s.id) {
+                    console.warn('Invalid sale record (missing id):', s);
+                    return false;
+                }
+                return !deletedIdsRef.has(s.id);
+            });
 
-        // 1. Identify today's sales (all types: unitaria, abono, cierre, ajuste, total)
-        const todayRecords = activeSales.filter(s => {
-            const d = new Date(s.fecha);
-            return d.toDateString() === todayStr;
-        });
+            const now = new Date();
+            const todayStr = now.toDateString();
 
-        // 2. Aggregate today's sales using aggregateDailyTotal
-        // This handles all record types correctly (unitaria, abono, cierre, etc.)
-        const todayAggregated = aggregateDailyTotal(todayRecords);
+            // 1. Identify today's sales (all types: unitaria, abono, cierre, ajuste, total)
+            const todayRecords = activeSales.filter(s => {
+                try {
+                    // Use normalizeDate for safe conversion
+                    const d = normalizeDate(s.fecha);
+                    return d.toDateString() === todayStr;
+                } catch (error) {
+                    console.error('Error filtering today\'s sales:', error, s);
+                    return false;
+                }
+            });
 
-        // 3. Determine "lastSale"
-        const mostRecent = activeSales.length > 0 ? activeSales[0] : null;
+            // 2. Aggregate today's sales using aggregateDailyTotal
+            // This handles all record types correctly (unitaria, abono, cierre, etc.)
+            let todayAggregated;
+            try {
+                todayAggregated = aggregateDailyTotal(todayRecords);
+            } catch (error) {
+                console.error('Error aggregating today\'s sales:', error);
+                todayAggregated = {
+                    ingrid: { operaciones: 0, unidades: 0, ventaBruta: 0, abonos: 0, venta: 0 },
+                    marta: { operaciones: 0, unidades: 0, ventaBruta: 0, abonos: 0, venta: 0 },
+                    total: { operaciones: 0, unidades: 0, ventaBruta: 0, abonos: 0, venta: 0 }
+                };
+            }
 
-        setSales(activeSales);
-        setTodaysSales(todayRecords);
-        setDailyTotal(todayAggregated.total);
-        setLastSale(mostRecent);
+            // 3. Determine "lastSale"
+            const mostRecent = activeSales.length > 0 ? activeSales[0] : null;
+
+            setSales(activeSales);
+            setTodaysSales(todayRecords);
+            setDailyTotal(todayAggregated.total);
+            setLastSale(mostRecent);
+        } catch (error) {
+            console.error('Critical error in processSalesData:', error);
+            setError('Error al procesar datos de ventas');
+            // Set safe defaults
+            setSales([]);
+            setTodaysSales([]);
+            setDailyTotal(null);
+            setLastSale(null);
+        }
     }, [deletedIdsRef]);
 
     const fetchSales = useCallback(async () => {

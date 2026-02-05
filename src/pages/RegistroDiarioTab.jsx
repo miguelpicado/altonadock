@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { formatCurrency, aggregateDailyTotal } from '../utils/calculations';
+import { normalizeDate } from '../utils/dateUtils';
 import DailyDetailModal from '../components/DailyDetailModal';
 
 export default function RegistroDiarioTab({ sales, deleteSale, deleteMultipleSales }) {
@@ -12,29 +13,45 @@ export default function RegistroDiarioTab({ sales, deleteSale, deleteMultipleSal
         const grouped = {};
 
         sales.forEach(sale => {
-            const dateStr = new Date(sale.fecha).toDateString();
-            if (!grouped[dateStr]) {
-                grouped[dateStr] = [];
+            try {
+                const dateStr = normalizeDate(sale.fecha).toDateString();
+                if (!grouped[dateStr]) {
+                    grouped[dateStr] = [];
+                }
+                grouped[dateStr].push(sale);
+            } catch (error) {
+                console.error('Error grouping sale by date:', error, sale);
             }
-            grouped[dateStr].push(sale);
         });
 
         // Convert to array and sort descending
         return Object.entries(grouped)
             .map(([dateStr, dateSales]) => {
-                // Use aggregateDailyTotal for proper calculation
-                const { ingrid, marta, total } = aggregateDailyTotal(dateSales);
+                try {
+                    // Validate dateSales array
+                    if (!dateSales || dateSales.length === 0) {
+                        console.warn('Empty dateSales for dateStr:', dateStr);
+                        return null;
+                    }
 
-                return {
-                    dateStr,
-                    rawDate: new Date(dateSales[0].fecha),
-                    aggregated: total, // Use the correctly aggregated total
-                    details: [ingrid, marta].filter(emp => emp.operaciones > 0 || emp.hasClose), // Pass per-employee data
-                    hasIngrid: ingrid.operaciones > 0 || ingrid.hasClose,
-                    hasMarta: marta.operaciones > 0 || marta.hasClose,
-                    allRecords: dateSales // Keep original records for deletion
-                };
+                    // Use aggregateDailyTotal for proper calculation
+                    const { ingrid, marta, total } = aggregateDailyTotal(dateSales);
+
+                    return {
+                        dateStr,
+                        rawDate: normalizeDate(dateSales[0].fecha),
+                        aggregated: total, // Use the correctly aggregated total
+                        details: [ingrid, marta].filter(emp => emp.operaciones > 0 || emp.hasClose), // Pass per-employee data
+                        hasIngrid: ingrid.operaciones > 0 || ingrid.hasClose,
+                        hasMarta: marta.operaciones > 0 || marta.hasClose,
+                        allRecords: dateSales // Keep original records for deletion
+                    };
+                } catch (error) {
+                    console.error('Error mapping daily sales:', error, dateStr);
+                    return null;
+                }
             })
+            .filter(record => record !== null) // Remove failed mappings
             .sort((a, b) => b.rawDate - a.rawDate);
 
     }, [sales]);
